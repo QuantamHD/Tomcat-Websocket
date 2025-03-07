@@ -36,7 +36,7 @@ function update(deltaT, gameObjects) {
 }
 
 var previousTimeStamp = 0;
-let gameObjects = [new Bunny(0, 250, document.getElementById("cookie_sprite_sheet"))];
+let gameObjects = [new Bunny(-20, 150, document.getElementById("cookie_sprite_sheet")), new Bunny(-20, 100, document.getElementById("gizmo_sprite_sheet"))];
 function gameLoop(timestamp) {
   let deltax = timestamp - previousTimeStamp;
   previousTimeStamp = timestamp;

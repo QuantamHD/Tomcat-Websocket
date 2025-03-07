@@ -31,7 +31,7 @@ class Bunny {
         this.x += rate;
         this.y -= rate;
 
-        if (this.y < 10) {
+        if (this.y < -20) {
             this.x = this.initalX;
             this.y = this.intialY;
         }

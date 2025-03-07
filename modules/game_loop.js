@@ -1,3 +1,4 @@
+import { Bunny } from "./bunny.js";
 
 let canvas = document.getElementById('game_window');
 let ctx = canvas.getContext('2d');
@@ -22,37 +23,26 @@ function initResizeCanvasTask() {
   window.addEventListener('resize', resize, false);
 }
 
-// Load image
-const image =document.getElementById("cookie_sprite_sheet");
-var nextFrame = 125; // 125ms
-var frameNumber = 0;
-var x = 0
-var y = 200;
-function draw(deltax) {
-  nextFrame -= deltax;
-  if (nextFrame < 0) {
-    frameNumber = (frameNumber + 1) % 5;
-    nextFrame = 125 + Math.max(nextFrame, -125);
+function draw(deltaT, gameObjects) {
+  for (const object of gameObjects) {
+    object.draw(deltaT, ctx);
   }
-  let rate =1.5/deltax;
-  x = x + rate;
-  y = y - rate;
+}
 
-
-  if (y < 10) {
-    x = 0;
-    y = 200;
+function update(deltaT, gameObjects) {
+  for (const object of gameObjects) {
+    object.update(deltaT);
   }
-  console.log(frameNumber);
-  ctx.drawImage(image, 20 * (frameNumber ), 0, 20, 20, Math.round(x), Math.round(y), 20, 20);
 }
 
 var previousTimeStamp = 0;
+let gameObjects = [new Bunny(0, 250, document.getElementById("cookie_sprite_sheet"))];
 function gameLoop(timestamp) {
   let deltax = timestamp - previousTimeStamp;
   previousTimeStamp = timestamp;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  draw(deltax);
+  update(deltax, gameObjects);
+  draw(deltax, gameObjects);
   requestAnimationFrame((timestamp_next) => gameLoop(timestamp_next));
 }
 

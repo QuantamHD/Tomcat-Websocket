@@ -1,4 +1,5 @@
 import { Bunny } from "./bunny.js";
+import { Vector2D } from "./vector2d.js";
 
 let canvas = document.getElementById('game_window');
 let ctx = canvas.getContext('2d');
@@ -36,7 +37,10 @@ function update(deltaT, gameObjects) {
 }
 
 var previousTimeStamp = 0;
-let gameObjects = [new Bunny(-20, 150, document.getElementById("cookie_sprite_sheet"), false), new Bunny(-20, 200, document.getElementById("gizmo_sprite_sheet"), true)];
+let gameObjects = [
+  new Bunny(new Vector2D(-20, 150), document.getElementById("cookie_sprite_sheet"), false),
+  new Bunny(new Vector2D(-20, 200), document.getElementById("gizmo_sprite_sheet"), true)
+];
 function gameLoop(timestamp) {
   let deltax = timestamp - previousTimeStamp;
   previousTimeStamp = timestamp;

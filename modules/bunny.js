@@ -1,13 +1,12 @@
+import { Vector2D } from "./vector2d.js";
+
 class Bunny {
-    constructor(initalX, intialY, image, makeTurn) {
-        this.initalX = initalX;
-        this.intialY = intialY;
-        this.x = initalX;
-        this.y = intialY;
-        this.prevX = initalX;
-        this.prevY = intialY;
-        this.accumulateDeltaX = 0;
-        this.accumulateDeltaY = 0;
+    constructor(initialPos, image, makeTurn) {
+        this.initialPos = initialPos;
+        this.pos = initialPos.copy();
+        //this.prevPos = initialPos.copy();
+        this.accumulateDelta = Vector2D.zero();
+
         // The amount of time between animation frames in milliseconds
         this.timePerFrameMs = 125;
         // The amount of time left on this frame before switching to the next one.
@@ -26,8 +25,8 @@ class Bunny {
     draw(deltaT, ctx) {
         ctx.save();
 
-        let x = Math.round(this.x);
-        let y = Math.round(this.y);
+        let x = Math.round(this.pos.x);
+        let y = Math.round(this.pos.y);
         
 
         if (this.state == "running_left" || this.state == "loaf_left") {
@@ -54,8 +53,7 @@ class Bunny {
                 this.state = "running_left";
                 this.currentFrameNumber = 0;
                 this.timeLeftOnCurrentFrame = 125;
-                this.accumulateDeltaX = 0;
-                this.accumulateDeltaY = 0;
+                this.accumulateDelta.setValues(0, 0);
                 this.velocity = 1.5;
             }
 
@@ -64,15 +62,15 @@ class Bunny {
                 this.currentFrameNumber = 0;
                 this.timeLeftOnCurrentFrame = 400;
                 this.velocity = 0;
-                this.accumulateDeltaX = 0;
-                this.accumulateDeltaY = 0;
-                this.x += 20;
+                this.accumulateDelta.setValues(0, 0);
+                // Accounts for image moving when it's flipped
+                this.pos.x += 20;
             }
 
         }
         let rate = this.velocity / deltaT;
 
-        if (this.y < 60 && this.makeTurn && this.state == "running_right") {
+        if (this.pos.y < 60 && this.makeTurn && this.state == "running_right") {
             this.currentFrameNumber = 0;
             this.timeLeftOnCurrentFrame = 400;
             this.velocity = 0;
@@ -80,30 +78,28 @@ class Bunny {
         }
 
         if (this.state == "running_left") {
-            this.accumulateDeltaX += -rate;
+            this.accumulateDelta.x += -rate;
         } else if (this.state == "running_right") {
-            this.accumulateDeltaX += rate;
+            this.accumulateDelta.x += rate;
         }
         if (this.state == "running_left" || this.state == "running_right") {
-            this.accumulateDeltaY -= rate;
+            this.accumulateDelta.y -= rate;
         }
 
-        if (Math.abs(this.accumulateDeltaX) > 1) {
-            this.x += Math.round(this.accumulateDeltaX);
-            this.accumulateDeltaX = 0;
+        if (Math.abs(this.accumulateDelta.x) > 1) {
+            this.pos.x += Math.round(this.accumulateDelta.x);
+            this.accumulateDelta.x = 0;
         }
 
-        if (Math.abs(this.accumulateDeltaY) > 1) {
-            this.y += Math.round(this.accumulateDeltaY);
-            this.accumulateDeltaY = 0;
+        if (Math.abs(this.accumulateDelta.y) > 1) {
+            this.pos.y += Math.round(this.accumulateDelta.y);
+            this.accumulateDelta.y = 0;
         }
 
-        if (this.y < -20) {
-            this.x = this.initalX;
-            this.y = this.intialY;
+        if (this.pos.y < -20) {
+            this.pos.set(this.initialPos);
             this.shouldTurn = false;
-            this.accumulateDeltaX = 0;
-            this.accumulateDeltaY = 0;
+            this.accumulateDelta.setValues(0, 0);
             this.state = "running_right";
         }
     }
@@ -111,14 +107,14 @@ class Bunny {
     // Since this is a pixel art game exact pixel coordinates
     // matter a lot. Right now the fractional component of their
     // position can start to deviate, and when it does they round
-    // in an unatrual and jittery way. Incrementing either x or y
+    // in an unnatural and jittery way. Incrementing either x or y
     // 1 frame apart.
     //
     // This function will essentially keep the fractional component
-    // of their position the same to avoid this unatural rounding.
+    // of their position the same to avoid this unnatural rounding.
     smoothlyRoundPosition() {
-        let x = Math.abs(this.x);
-        let y = Math.abs(this.y);
+        let x = Math.abs(this.pos.x);
+        let y = Math.abs(this.pos.y);
 
         let fractional_x = x - Math.floor(x);
         let fractional_y = y - Math.floor(y);

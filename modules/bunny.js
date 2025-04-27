@@ -1,21 +1,51 @@
+import { Timer } from "./timer.js";
 import { Vector2D } from "./vector2d.js";
+
+const BunnyState = {
+    RUNNING_RIGHT: 0,
+    RUNNING_LEFT: 1,
+    LOAF_LEFT: 2,
+    LOAF_RIGHT: 3
+};
 
 class Bunny {
     constructor(initialPos, image, makeTurn) {
         this.initialPos = initialPos;
         this.pos = initialPos.copy();
-        //this.prevPos = initialPos.copy();
         this.accumulateDelta = Vector2D.zero();
 
         // The amount of time between animation frames in milliseconds
-        this.timePerFrameMs = 125;
-        // The amount of time left on this frame before switching to the next one.
-        this.timeLeftOnCurrentFrame = this.timePerFrameMs;
+        this.stateTimer = new Timer(125, () => this.onStateTimerTimeout());
         this.currentFrameNumber = 0;
         this.spriteSheet = image;
         this.makeTurn = makeTurn;
-        this.state = "running_right";
-        this.velocity = 1.5;
+        this.state = BunnyState.RUNNING_RIGHT
+        this.velocity = new Vector2D(1.5, 1.5);
+        this.deltaV = Vector2D.zero();
+    }
+
+    onStateTimerTimeout() {
+        // update animation
+        this.currentFrameNumber = (this.currentFrameNumber + 1) % 5;
+            
+        // state.change state
+        if (this.state == BunnyState.LOAF_LEFT) {
+            this.state = BunnyState.RUNNING_LEFT;
+            this.currentFrameNumber = 0;
+            this.stateTimer.reset(125);
+            this.accumulateDelta.setValues(0, 0);
+            this.velocity.setValues(1.5, 1.5);
+        }
+
+        if (this.state == BunnyState.LOAF_RIGHT) {
+            this.state = BunnyState.LOAF_LEFT;
+            this.currentFrameNumber = 0;
+            this.stateTimer.reset(400);
+            this.velocity.setValues(0, 0);
+            this.accumulateDelta.setValues(0, 0);
+            // Accounts for image moving when it's flipped
+            this.pos.x += 20;
+        }
     }
 
     update(deltaT) {
@@ -29,13 +59,9 @@ class Bunny {
         let y = Math.round(this.pos.y);
         
 
-        if (this.state == "running_left" || this.state == "loaf_left") {
+        if (this.state == BunnyState.RUNNING_LEFT || this.state == BunnyState.LOAF_LEFT) {
             x *= -1;
             ctx.scale(-1, 1);
-        }
-
-        if (this.state == "running_left" || this.state == "loaf_left") { 
-            console.log(x + ", " + y);
         }
         
         ctx.drawImage(this.spriteSheet, 20 * (this.currentFrameNumber), 0, 20, 20, x, y, 20, 20);
@@ -43,49 +69,26 @@ class Bunny {
     }
 
     updateAnimation(deltaT) {
-        this.timeLeftOnCurrentFrame -= deltaT;
-        if (this.timeLeftOnCurrentFrame < 0) {
-            this.currentFrameNumber = (this.currentFrameNumber + 1) % 5;
-            // Don't skip more than one frame if there's a lot of times between frames.
-            this.timeLeftOnCurrentFrame = this.timePerFrameMs + Math.max(this.timeLeftOnCurrentFrame, -this.timePerFrameMs);
-            
-            if (this.state == "loaf_left") {
-                this.state = "running_left";
-                this.currentFrameNumber = 0;
-                this.timeLeftOnCurrentFrame = 125;
-                this.accumulateDelta.setValues(0, 0);
-                this.velocity = 1.5;
-            }
+        this.stateTimer.update(deltaT);
+        this.deltaV.setValues(this.velocity.x / deltaT, this.velocity.y / deltaT);
 
-            if (this.state == "loaf_right") {
-                this.state = "loaf_left";
-                this.currentFrameNumber = 0;
-                this.timeLeftOnCurrentFrame = 400;
-                this.velocity = 0;
-                this.accumulateDelta.setValues(0, 0);
-                // Accounts for image moving when it's flipped
-                this.pos.x += 20;
-            }
-
-        }
-        let rate = this.velocity / deltaT;
-
-        if (this.pos.y < 60 && this.makeTurn && this.state == "running_right") {
+        // state.update()
+        if (this.pos.y < 60 && this.makeTurn && this.state == BunnyState.RUNNING_RIGHT) {
             this.currentFrameNumber = 0;
-            this.timeLeftOnCurrentFrame = 400;
-            this.velocity = 0;
-            this.state = "loaf_right";
+            this.stateTimer.reset(400);
+            this.velocity.setValues(0, 0);
+            this.state = BunnyState.LOAF_RIGHT;
         }
 
-        if (this.state == "running_left") {
-            this.accumulateDelta.x += -rate;
-        } else if (this.state == "running_right") {
-            this.accumulateDelta.x += rate;
-        }
-        if (this.state == "running_left" || this.state == "running_right") {
-            this.accumulateDelta.y -= rate;
+        if (this.state == BunnyState.RUNNING_LEFT) {
+            this.accumulateDelta.x += -this.deltaV.x;
+            this.accumulateDelta.y -= this.deltaV.y;
+        } else if (this.state == BunnyState.RUNNING_RIGHT) {
+            this.accumulateDelta.x += this.deltaV.x;
+            this.accumulateDelta.y -= this.deltaV.y;
         }
 
+        // update position
         if (Math.abs(this.accumulateDelta.x) > 1) {
             this.pos.x += Math.round(this.accumulateDelta.x);
             this.accumulateDelta.x = 0;
@@ -100,39 +103,8 @@ class Bunny {
             this.pos.set(this.initialPos);
             this.shouldTurn = false;
             this.accumulateDelta.setValues(0, 0);
-            this.state = "running_right";
+            this.state = BunnyState.RUNNING_RIGHT;
         }
-    }
-
-    // Since this is a pixel art game exact pixel coordinates
-    // matter a lot. Right now the fractional component of their
-    // position can start to deviate, and when it does they round
-    // in an unnatural and jittery way. Incrementing either x or y
-    // 1 frame apart.
-    //
-    // This function will essentially keep the fractional component
-    // of their position the same to avoid this unnatural rounding.
-    smoothlyRoundPosition() {
-        let x = Math.abs(this.pos.x);
-        let y = Math.abs(this.pos.y);
-
-        let fractional_x = x - Math.floor(x);
-        let fractional_y = y - Math.floor(y);
-
-        let new_fractional = (fractional_x + fractional_y)/2;
-
-        if (this.x >= 0) {
-            this.x = Math.floor(this.x) + new_fractional;
-        } else {
-            this.x = Math.ceil(this.x) - new_fractional;
-        }
-
-        if (this.y >= 0) {
-            this.y = Math.floor(this.y) + new_fractional;
-        } else {
-            this.y = Math.ceil(this.y) - new_fractional;
-        }
-
     }
 }
 

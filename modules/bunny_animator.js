@@ -13,6 +13,7 @@ class BunnyAnimator {
     this.timer = new Timer(125, () => this.onTimerTimeout());
   }
 
+  // if we add a set look dir and a set is moving field then the animator can pick it's own animation based off of that knowledge.
   update(deltaT) {
     this.timer.update(deltaT);
   }

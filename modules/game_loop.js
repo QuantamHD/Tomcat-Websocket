@@ -38,8 +38,10 @@ function update(deltaT, gameObjects) {
 
 var previousTimeStamp = 0;
 let gameObjects = [
-  new Bunny(new Vector2D(-20, 150), document.getElementById("cookie_sprite_sheet"), false),
-  new Bunny(new Vector2D(-20, 200), document.getElementById("gizmo_sprite_sheet"), true)
+  new Bunny(new Vector2D(-20, 125), document.getElementById("cookie_sprite_sheet"), "southeast"),
+  new Bunny(new Vector2D(-20, 150), document.getElementById("cookie_sprite_sheet"), "southwest"),
+  new Bunny(new Vector2D(-20, 175), document.getElementById("gizmo_sprite_sheet"), "northwest"),
+  new Bunny(new Vector2D(-20, 200), document.getElementById("gizmo_sprite_sheet"), "northeast")
 ];
 function gameLoop(timestamp) {
   let deltax = timestamp - previousTimeStamp;

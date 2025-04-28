@@ -1,3 +1,4 @@
+import { BunnyAnimator } from "./bunny_animator.js";
 import { Timer } from "./timer.js";
 import { Vector2D } from "./vector2d.js";
 
@@ -6,8 +7,10 @@ const BunnyHeight = 20;
 const BunnyState = {
     RUNNING_RIGHT: 0,
     RUNNING_LEFT: 1,
-    LOAF_LEFT: 2,
-    LOAF_RIGHT: 3
+    RUNNING_DOWN_RIGHT: 2,
+    RUNNING_DOWN_LEFT: 3,
+    LOAF_LEFT: 4,
+    LOAF_RIGHT: 5
 };
 
 class Bunny {
@@ -15,42 +18,40 @@ class Bunny {
         this.initialPos = initialPos;
         this.pos = initialPos.copy();
         this.accumulateDelta = Vector2D.zero();
+        this.velocity = new Vector2D(1.5, 1.5);
+        this.deltaV = Vector2D.zero();
+        this.shouldTurn = shouldTurn;
 
         // The amount of time between animation frames in milliseconds
         this.stateTimer = new Timer(125, () => this.onStateTimerTimeout());
-        this.currentFrameNumber = 0;
-        this.spriteSheet = image;
-        this.shouldTurn = shouldTurn;
-        this.state = BunnyState.RUNNING_RIGHT
-        this.velocity = new Vector2D(1.5, 1.5);
-        this.deltaV = Vector2D.zero();
+        this.bunnyAnimator = new BunnyAnimator(image);
+        this.state = BunnyState.RUNNING_RIGHT;
+        this.transitionToRunningRight();
     }
 
     onStateTimerTimeout() {
-        // update animation
-        this.currentFrameNumber = (this.currentFrameNumber + 1) % 5;
-
         // state.change state
         if (this.state == BunnyState.LOAF_LEFT) {
             this.transitionToRunningLeft(this.state);
         }
         if (this.state == BunnyState.LOAF_RIGHT) {
-            this.transitionToLoafLeft(this.state);
+            this.transitionToLoafRight(this.state);
         }
         // this needs to be last for now
-        if (this.state == BunnyState.RUNNING_RIGHT && this.performTurn()) {
-            this.transitionToLoafRight(this.state);
+        if (this.state == BunnyState.RUNNING_RIGHT) {
+            this.performTurn()
         }
     }
 
     update(deltaT) {
         this.stateTimer.update(deltaT);
+        this.bunnyAnimator.update(deltaT);
         this.deltaV.setValues(this.velocity.x / deltaT, this.velocity.y / deltaT);
 
         if (this.isOffscreen()) {
             this.pos.set(this.initialPos);
             this.accumulateDelta.setValues(0, 0);
-            this.state = BunnyState.RUNNING_RIGHT;
+            this.transitionToRunningRight();
             return;
         }
 
@@ -75,49 +76,79 @@ class Bunny {
 
     draw(deltaT, ctx) {
         ctx.save();
-
-        let x = Math.round(this.pos.x);
-        let y = Math.round(this.pos.y);
-
-        if (this.state == BunnyState.RUNNING_LEFT || this.state == BunnyState.LOAF_LEFT) {
-            x *= -1;
-            ctx.scale(-1, 1);
-        }
-        ctx.drawImage(this.spriteSheet, 20 * (this.currentFrameNumber), 0, 20, 20, x, y, 20, 20);
+        ctx.translate(Math.round(this.pos.x), Math.round(this.pos.y));
+        this.bunnyAnimator.draw(deltaT, ctx);
         ctx.restore();
+    }
+
+    transitionToRunningRight(currState) {
+        this.state = BunnyState.RUNNING_RIGHT;
+        this.accumulateDelta.setValues(0, 0);
+        this.velocity.setValues(1.5, 1.5);
+        this.bunnyAnimator.runRight();
     }
 
     transitionToRunningLeft(currState) {
         this.state = BunnyState.RUNNING_LEFT;
-        this.currentFrameNumber = 0;
         this.stateTimer.reset(125);
         this.accumulateDelta.setValues(0, 0);
         this.velocity.setValues(1.5, 1.5);
+        this.bunnyAnimator.runLeft();
+    }
+
+    transitionToRunningDownRight(currState) {
+        this.state = BunnyState.RUNNING_DOWN_RIGHT;
+        this.stateTimer.reset(125);
+        this.accumulateDelta.setValues(0, 0);
+        this.velocity.setValues(1.5, -1.5);
+        this.bunnyAnimator.runDownRight();
+    }
+
+    transitionToRunningDownLeft(currState) {
+        this.state = BunnyState.RUNNING_DOWN_LEFT;
+        this.stateTimer.reset(125);
+        this.accumulateDelta.setValues(0, 0);
+        this.velocity.setValues(-1.5, -1.5);
+        this.bunnyAnimator.runDownLeft();
     }
 
     transitionToLoafLeft(currState) {
         this.state = BunnyState.LOAF_LEFT;
-        this.currentFrameNumber = 0;
         this.stateTimer.reset(400);
         this.velocity.setValues(0, 0);
         this.accumulateDelta.setValues(0, 0);
-        // Accounts for image moving when it's flipped
-        this.pos.x += 20;
+        this.bunnyAnimator.loafLeft();
     }
 
     transitionToLoafRight(currState) {
-        this.currentFrameNumber = 0;
         this.stateTimer.reset(400);
         this.velocity.setValues(0, 0);
         this.state = BunnyState.LOAF_RIGHT;
+        this.bunnyAnimator.loafRight();
     }
 
     performTurn() {
-        return this.pos.y < 60 && this.shouldTurn;
+        if (this.pos.y > 60) {
+            return;
+        }
+        switch (this.shouldTurn) {
+            case "northeast":
+                this.transitionToRunningRight(this.state);
+                break;
+            case "northwest":
+                this.transitionToRunningLeft(this.state);
+                break;
+            case "southeast":
+               this.transitionToRunningDownRight(this.state);
+               break;
+            case "southwest":
+                this.transitionToRunningDownLeft(this.state);
+                break;
+        }
     }
 
     isOffscreen() {
-        return this.pos.y < -BunnyHeight;
+        return this.pos.y < -BunnyHeight || this.pos.y > 220;
     }
 }
 

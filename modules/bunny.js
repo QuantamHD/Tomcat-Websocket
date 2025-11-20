@@ -10,8 +10,17 @@ const BunnyState = {
     RUNNING_DOWN_RIGHT: 2,
     RUNNING_DOWN_LEFT: 3,
     LOAF_LEFT: 4,
-    LOAF_RIGHT: 5
+    LOAF_RIGHT: 5,
+    EATING: 6
 };
+
+const stateTransitions = {
+    RUNNING_RIGHT: [BunnyState.LOAF_RIGHT, BunnyState.EATING],
+    RUNNING_LEFT: [BunnyState.LOAF_LEFT, BunnyState.EATING],
+    LOAF_RIGHT: [BunnyState.LOAF_LEFT, BunnyState.RUNNING_RIGHT, BunnyState.EATING],
+    LOAF_LEFT: [BunnyState.RUNNING_LEFT, BunnyState.LOAF_RIGHT, BunnyState.EATING],
+    EATING: [BunnyState.LOAF_LEFT, BunnyState.LOAF_RIGHT, BunnyState.RUNNING_LEFT, BunnyState.RUNNING_RIGHT]
+}
 
 class Bunny {
     constructor(initialPos, image, shouldTurn) {
@@ -21,6 +30,8 @@ class Bunny {
         this.velocity = new Vector2D(1.5, 1.5);
         this.deltaV = Vector2D.zero();
         this.shouldTurn = shouldTurn;
+        this.foodBowlTargetOffset = Vector2D.zero();
+        this.lastKnownFoodBowlPos = null;
 
         // The amount of time between animation frames in milliseconds
         this.stateTimer = new Timer(125, () => this.onStateTimerTimeout());
@@ -37,31 +48,68 @@ class Bunny {
         if (this.state == BunnyState.LOAF_RIGHT) {
             this.transitionToLoafRight(this.state);
         }
-        // this needs to be last for now
-        if (this.state == BunnyState.RUNNING_RIGHT) {
-            this.performTurn()
-        }
     }
 
-    update(deltaT) {
+    update(deltaT, foodBowl) {
         this.stateTimer.update(deltaT);
         this.bunnyAnimator.update(deltaT);
+
+        // Check if the food bowl has moved and calculate a new target if it has.
+        if (!this.lastKnownFoodBowlPos || !this.lastKnownFoodBowlPos.equals(foodBowl.pos)) {
+            this.calculateNewFoodBowlTarget();
+            this.lastKnownFoodBowlPos = foodBowl.pos.copy();
+        }
+
+        const targetPos = this.lastKnownFoodBowlPos.copy().add(this.foodBowlTargetOffset);
+        const distanceToTarget = this.pos.distance(targetPos);
+        const EATING_DISTANCE = 5; // Smaller distance now since it's a target point
+
+        if (this.state === BunnyState.EATING) {
+            if (distanceToTarget >= EATING_DISTANCE) {
+                // Target moved away, start moving again
+                const direction = targetPos.subtract(this.pos).normalize();
+                if (direction.x > 0) {
+                    this.transitionToRunningRight();
+                } else {
+                    this.transitionToRunningLeft();
+                }
+            } else {
+                // Still eating, nothing to do but wait
+                return;
+            }
+        } else { // Not in EATING state
+            const direction = targetPos.subtract(this.pos).normalize();
+
+            if (distanceToTarget < EATING_DISTANCE) {
+                // Reached target, start eating
+                this.transitionToEating(direction);
+                return;
+            }
+
+            if (this.isOffscreen()) {
+                this.pos.set(this.initialPos);
+                this.accumulateDelta.setValues(0, 0);
+                this.transitionToRunningRight();
+                return;
+            }
+
+            // Move towards food bowl
+            this.velocity.x = direction.x * 1.5;
+            this.velocity.y = direction.y * 1.5;
+
+            if (direction.x > 0 && direction.y > 0) {
+                this.bunnyAnimator.runDownRight();
+            } else if (direction.x <= 0 && direction.y > 0) {
+                this.bunnyAnimator.runDownLeft();
+            } else if (direction.x > 0 && direction.y <= 0) {
+                this.bunnyAnimator.runRight();
+            } else {
+                this.bunnyAnimator.runLeft();
+            }
+        }
+
         this.deltaV.setValues(this.velocity.x / deltaT, this.velocity.y / deltaT);
-
-        if (this.isOffscreen()) {
-            this.pos.set(this.initialPos);
-            this.accumulateDelta.setValues(0, 0);
-            this.transitionToRunningRight();
-            return;
-        }
-
-        // Controlling Bunny Direction
-        if (this.state == BunnyState.RUNNING_LEFT) {
-            this.deltaV.x = -this.deltaV.x;
-        }
-
-        this.accumulateDelta.x += this.deltaV.x;
-        this.accumulateDelta.y -= this.deltaV.y;
+        this.accumulateDelta.add(this.deltaV);
 
         // update position
         if (Math.abs(this.accumulateDelta.x) > 1) {
@@ -80,6 +128,13 @@ class Bunny {
         this.bunnyAnimator.draw(deltaT, ctx);
         ctx.restore();
     }
+
+    calculateNewFoodBowlTarget() {
+        const angle = Math.random() * 2 * Math.PI;
+        const radius = 25 + Math.random() * 25; // 25 to 50 pixel radius
+        this.foodBowlTargetOffset.setValues(radius * Math.cos(angle), radius * Math.sin(angle));
+    }
+
 
     transitionToRunningRight(currState) {
         this.state = BunnyState.RUNNING_RIGHT;
@@ -127,6 +182,23 @@ class Bunny {
         this.bunnyAnimator.loafRight();
     }
 
+    transitionToEating(direction) {
+        this.state = BunnyState.EATING;
+        this.stateTimer.reset(2000); // Wait for 2 seconds (example)
+        this.velocity.setValues(0, 0);
+        this.accumulateDelta.setValues(0, 0);
+        
+        if (direction.x > 0 && direction.y > 0) {
+            this.bunnyAnimator.loafDownRight();
+        } else if (direction.x <= 0 && direction.y > 0) {
+            this.bunnyAnimator.loafDownLeft();
+        } else if (direction.x > 0 && direction.y <= 0) {
+            this.bunnyAnimator.loafRight();
+        } else {
+            this.bunnyAnimator.loafLeft();
+        }
+    }
+
     performTurn() {
         if (this.pos.y > 60) {
             return;
@@ -148,7 +220,7 @@ class Bunny {
     }
 
     isOffscreen() {
-        return this.pos.y < -BunnyHeight || this.pos.y > 220;
+        return false;
     }
 }
 

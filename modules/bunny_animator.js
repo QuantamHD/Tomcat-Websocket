@@ -55,6 +55,18 @@ class BunnyAnimator {
     this.flipX = false;
   }
 
+  loafDownRight() {
+    this.frameOffset = 4;
+    this.animationLength = 1;
+    this.flipX = true;
+  }
+
+  loafDownLeft() {
+    this.frameOffset = 4;
+    this.animationLength = 1;
+    this.flipX = false;
+  }
+
   draw(deltaT, ctx) {
     ctx.save();
 

@@ -1,5 +1,6 @@
 import { Bunny } from "./bunny.js";
 import { Vector2D } from "./vector2d.js";
+import FoodBowl from './food_bowl.js';
 
 let canvas = document.getElementById('game_window');
 let ctx = canvas.getContext('2d');
@@ -30,24 +31,36 @@ function draw(deltaT, gameObjects) {
   }
 }
 
-function update(deltaT, gameObjects) {
+function update(deltaT, gameObjects, foodBowl) {
   for (const object of gameObjects) {
-    object.update(deltaT);
+    if (object instanceof Bunny) {
+      object.update(deltaT, foodBowl);
+    } else {
+      object.update(deltaT);
+    }
   }
 }
 
 var previousTimeStamp = 0;
+const foodBowl = new FoodBowl(window.innerWidth / 2, window.innerHeight / 2);
 let gameObjects = [
   new Bunny(new Vector2D(-20, 125), document.getElementById("cookie_sprite_sheet"), "southeast"),
   new Bunny(new Vector2D(-20, 150), document.getElementById("cookie_sprite_sheet"), "southwest"),
   new Bunny(new Vector2D(-20, 175), document.getElementById("gizmo_sprite_sheet"), "northwest"),
-  new Bunny(new Vector2D(-20, 200), document.getElementById("gizmo_sprite_sheet"), "northeast")
+  new Bunny(new Vector2D(-20, 200), document.getElementById("gizmo_sprite_sheet"), "northeast"),
+  foodBowl
 ];
+
+canvas.addEventListener('click', (event) => {
+  foodBowl.pos.x = event.clientX;
+  foodBowl.pos.y = event.clientY;
+});
+
 function gameLoop(timestamp) {
   let deltax = timestamp - previousTimeStamp;
   previousTimeStamp = timestamp;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  update(deltax, gameObjects);
+  update(deltax, gameObjects, foodBowl);
   draw(deltax, gameObjects);
   requestAnimationFrame((timestamp_next) => gameLoop(timestamp_next));
 }
